@@ -315,6 +315,14 @@
             max-width: 700px;
             text-align: center;
         }
+        #camera-select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            font-size: 1em;
+        }
         #video {
             width: 100%;
             max-width: 640px;
@@ -418,6 +426,7 @@
     <div id="camera-modal" class="modal">
         <div class="modal-content">
             <h2>📸 Cámara de Tarea</h2>
+            <select id="camera-select"></select>
             <video id="video" autoplay></video>
             <canvas id="canvas"></canvas>
             <div class="camera-actions">
@@ -458,6 +467,7 @@
         // Elementos para la cámara
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
+        const cameraSelect = document.getElementById('camera-select');
         const captureBtn = document.getElementById('capture-btn');
         const cancelCameraBtn = document.getElementById('cancel-camera-btn');
 
@@ -576,20 +586,49 @@
             }
         };
 
-        // --- FUNCIONALIDAD DE CÁMARA ---
-        capturarImagenBtn.onclick = abrirCamara;
+        // --- FUNCIONALIDAD DE CÁMARA CON SELECCIÓN ---
+        capturarImagenBtn.onclick = iniciarCamara;
         cancelCameraBtn.onclick = detenerCamara;
         captureBtn.onclick = tomarFoto;
+        cameraSelect.onchange = () => iniciarStream(cameraSelect.value);
 
-        async function abrirCamara() {
+        async function iniciarCamara() {
             cameraModal.style.display = 'block';
+            await listarCamaras();
+            iniciarStream(cameraSelect.value);
+        }
+
+        async function listarCamaras() {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter(device => device.kind === 'videoinput');
+            
+            cameraSelect.innerHTML = ''; // Limpiar opciones existentes
+            videoDevices.forEach((device, index) => {
+                const option = document.createElement('option');
+                option.value = device.deviceId;
+                const label = device.label || `Cámara ${index + 1}`;
+                option.text = label;
+                cameraSelect.appendChild(option);
+            });
+        }
+
+        async function iniciarStream(deviceId) {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+
+            const constraints = {
+                video: {
+                    deviceId: deviceId ? { exact: deviceId } : undefined
+                }
+            };
+
             try {
-                stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
                 video.srcObject = stream;
             } catch (err) {
                 console.error("Error al acceder a la cámara: ", err);
-                alert("No se pudo acceder a la cámara. Asegúrate de dar los permisos necesarios.");
-                detenerCamara();
+                alert("No se pudo acceder a la cámara seleccionada. Intenta con otra.");
             }
         }
 
