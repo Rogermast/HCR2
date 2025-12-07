@@ -10,8 +10,6 @@
     <!-- ================================================== -->
     <!-- Librería para manejar archivos Excel -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
-    <!-- Librería para capturar la tabla como imagen -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <!-- Librería para crear y descargar archivos ZIP -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
@@ -193,7 +191,7 @@
             cursor: text;
         }
 
-        /* Modal (Ventana Emergente) */
+        /* Modal (Ventana Emergente) Genérica */
         .modal {
             display: none;
             position: fixed;
@@ -268,7 +266,7 @@
             background-color: #c0392b !important;
         }
 
-        /* Estilos para las nuevas funcionalidades */
+        /* Estilos para las funcionalidades avanzadas */
         .advanced-actions {
             display: flex;
             gap: 10px;
@@ -311,6 +309,44 @@
             width: 100%;
             border-radius: 8px;
         }
+
+        /* Estilos para el Modal de la Cámara */
+        #camera-modal .modal-content {
+            max-width: 700px;
+            text-align: center;
+        }
+        #video {
+            width: 100%;
+            max-width: 640px;
+            height: auto;
+            border-radius: 8px;
+            background-color: #000;
+        }
+        #canvas {
+            display: none;
+        }
+        .camera-actions {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+        .camera-actions button {
+            padding: 15px 25px;
+            font-size: 1.1em;
+        }
+        #capture-btn {
+            background-color: #2ecc71;
+        }
+        #capture-btn:hover {
+            background-color: #27ae60;
+        }
+        #cancel-camera-btn {
+            background-color: #e74c3c;
+        }
+        #cancel-camera-btn:hover {
+            background-color: #c0392b;
+        }
     </style>
 </head>
 <body>
@@ -352,7 +388,7 @@
 
             <!-- Botones de acción avanzada -->
             <div class="advanced-actions">
-                <button id="capturar-imagen-btn">📸 Capturar Imagen del Tablero</button>
+                <button id="capturar-imagen-btn">📸 Tomar Foto con la Cámara</button>
                 <button id="grabar-audio-btn" style="display:none;">🎤 Grabar Audio (Mantén Presionado)</button>
             </div>
             
@@ -378,6 +414,19 @@
         </div>
     </div>
 
+    <!-- Modal para la cámara -->
+    <div id="camera-modal" class="modal">
+        <div class="modal-content">
+            <h2>📸 Cámara de Tarea</h2>
+            <video id="video" autoplay></video>
+            <canvas id="canvas"></canvas>
+            <div class="camera-actions">
+                <button id="capture-btn">📷 Capturar Foto</button>
+                <button id="cancel-camera-btn" class="btn-danger">❌ Cancelar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ================================================== -->
     <!--                   LÓGICA JAVASCRIPT                -->
     <!-- ================================================== -->
@@ -387,6 +436,7 @@
         const horarioTable = document.getElementById('horario-table');
         const tareaModal = document.getElementById('tarea-modal');
         const imagenModal = document.getElementById('imagen-modal');
+        const cameraModal = document.getElementById('camera-modal');
         const spanClose = document.getElementsByClassName('close')[0];
         const spanCloseFullImg = document.getElementsByClassName('close-full-img')[0];
         const materiaSeleccionadaSpan = document.getElementById('materia-seleccionada');
@@ -398,19 +448,24 @@
         const modoEdicionBtn = document.getElementById('modo-edicion');
         const cargarExcelInput = document.getElementById('cargar-excel');
         
-        // Nuevos elementos
+        // Nuevos elementos para imagen y audio
         const capturarImagenBtn = document.getElementById('capturar-imagen-btn');
         const grabarAudioBtn = document.getElementById('grabar-audio-btn');
         const imagenPreviewContainer = document.getElementById('imagen-preview-container');
         const imagenCapturada = document.getElementById('imagen-capturada');
         const imagenAmpliada = document.getElementById('imagen-ampliada');
 
+        // Elementos para la cámara
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const captureBtn = document.getElementById('capture-btn');
+        const cancelCameraBtn = document.getElementById('cancel-camera-btn');
+
         // --- VARIABLES DE ESTADO ---
         let celdaActual = null;
         let modoEdicionActivo = false;
         let reconocimientoVoz = null;
-        let mediaRecorder = null;
-        let audioChunks = [];
+        let stream = null; // Para detener la cámara
 
         // --- ESTRUCTURA DE DATOS INICIAL ---
         const horarioDataDefecto = [
@@ -485,7 +540,11 @@
         // --- MANEJO DE EVENTOS ---
         spanClose.onclick = () => tareaModal.style.display = 'none';
         spanCloseFullImg.onclick = () => imagenModal.style.display = 'none';
-        window.onclick = (event) => { if (event.target == tareaModal) tareaModal.style.display = 'none'; if (event.target == imagenModal) imagenModal.style.display = 'none'; };
+        window.onclick = (event) => {
+            if (event.target == tareaModal) tareaModal.style.display = 'none';
+            if (event.target == imagenModal) imagenModal.style.display = 'none';
+            if (event.target == cameraModal) detenerCamara();
+        };
 
         guardarTareaBtn.onclick = () => {
             if (!celdaActual) return;
@@ -517,56 +576,77 @@
             }
         };
 
-        // NUEVAS FUNCIONALIDADES
-        capturarImagenBtn.onclick = () => {
-            horarioTable.style.transition = 'box-shadow 0.3s';
-            horarioTable.style.boxShadow = '0 0 20px #9b59b6';
+        // --- FUNCIONALIDAD DE CÁMARA ---
+        capturarImagenBtn.onclick = abrirCamara;
+        cancelCameraBtn.onclick = detenerCamara;
+        captureBtn.onclick = tomarFoto;
+
+        async function abrirCamara() {
+            cameraModal.style.display = 'block';
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+            } catch (err) {
+                console.error("Error al acceder a la cámara: ", err);
+                alert("No se pudo acceder a la cámara. Asegúrate de dar los permisos necesarios.");
+                detenerCamara();
+            }
+        }
+
+        function detenerCamara() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+                stream = null;
+            }
+            cameraModal.style.display = 'none';
+        }
+
+        function tomarFoto() {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
             
-            html2canvas(horarioTable, { backgroundColor: '#ffffff', scale: 2 }).then(canvas => {
-                const imagenBase64 = canvas.toDataURL('image/png');
-                imagenCapturada.src = imagenBase64;
-                imagenPreviewContainer.style.display = 'block';
-                
-                if(celdaActual) {
-                    const dia = celdaActual.dataset.dia; const hora = celdaActual.dataset.hora;
-                    const filaData = horarioConTareas.find(f => f.hora === hora);
-                    if(filaData) {
-                        if (!filaData.tarea) filaData.tarea = { dia, hora };
-                        filaData.tarea.imagenBase64 = imagenBase64;
-                        localStorage.setItem('horarioData', JSON.stringify(horarioConTareas));
-                    }
+            const imagenBase64 = canvas.toDataURL('image/png');
+            imagenCapturada.src = imagenBase64;
+            imagenPreviewContainer.style.display = 'block';
+
+            if(celdaActual) {
+                const dia = celdaActual.dataset.dia; const hora = celdaActual.dataset.hora;
+                const filaData = horarioConTareas.find(f => f.hora === hora);
+                if(filaData) {
+                    if (!filaData.tarea) filaData.tarea = { dia, hora };
+                    filaData.tarea.imagenBase64 = imagenBase64;
+                    localStorage.setItem('horarioData', JSON.stringify(horarioConTareas));
                 }
-                horarioTable.style.boxShadow = '';
-                alert('¡Imagen capturada y guardada en la tarea!');
-            });
-        };
+            }
+            
+            detenerCamara();
+            alert('¡Foto capturada y guardada en la tarea!');
+        }
 
         imagenCapturada.onclick = () => {
             imagenAmpliada.src = imagenCapturada.src;
             imagenModal.style.display = 'block';
         };
 
-        // Configuración de reconocimiento de voz
+        // --- FUNCIONALIDAD DE AUDIO (Sin cambios) ---
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             reconocimientoVoz = new SpeechRecognition();
             reconocimientoVoz.lang = 'es-ES';
             reconocimientoVoz.interimResults = false;
             reconocimientoVoz.maxAlternatives = 1;
-
             reconocimientoVoz.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
                 textoTareaTextarea.value += (textoTareaTextarea.value ? ' ' : '') + transcript;
             };
-
             reconocimientoVoz.onerror = (event) => {
                 console.error('Error en el reconocimiento de voz:', event.error);
                 alert('No se pudo reconocer el audio. Intenta de nuevo.');
             };
-
             grabarAudioBtn.style.display = 'inline-block';
-        } else {
-            console.warn('La API de reconocimiento de voz no es compatible con este navegador.');
         }
         
         grabarAudioBtn.addEventListener('mousedown', iniciarGrabacion);
@@ -588,6 +668,7 @@
             reconocimientoVoz.stop();
         }
 
+        // --- FUNCIÓN DE DESCARGA CORREGIDA ---
         descargarInfoBtn.onclick = async () => {
             if (!celdaActual) return;
             const dia = celdaActual.dataset.dia; const hora = celdaActual.dataset.hora;
@@ -620,8 +701,15 @@
                 a.download = `info_r2_${materia.replace(/\s+/g, '_')}.zip`;
                 document.body.appendChild(a);
                 a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
+                
+                // Limpieza
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 100);
+                
+                alert('Descarga iniciada. Revisa tu carpeta de Descargas.');
+
             } catch (error) {
                 console.error('Error al generar el archivo ZIP:', error);
                 alert('Ocurrió un error al crear el archivo para descargar.');
