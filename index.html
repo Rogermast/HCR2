@@ -479,15 +479,14 @@
 
         // --- ESTRUCTURA DE DATOS INICIAL ---
         const horarioDataDefecto = [
-            { hora: '7:00 - 8:00', lunes: 'Ed. Física', martes: 'Sociales', miercoles: 'Matemáticas', jueves: 'Biología', viernes: 'Inglés' },
-            { hora: '8:00 - 9:00', lunes: 'Matemáticas', martes: 'Inglés', miercoles: 'Sociales', jueves: 'Ed. Física', viernes: 'Biología' },
-            { hora: '9:00 - 9:40', lunes: 'Descanso', martes: 'Descanso', miercoles: 'Descanso', jueves: 'Descanso', viernes: 'Descanso' },
-            { hora: '9:40 - 10:40', lunes: 'Biología', martes: 'Matemáticas', miercoles: 'Inglés', jueves: 'Sociales', viernes: 'Ed. Física' },
-            { hora: '10:40 - 11:40', lunes: 'Inglés', martes: 'Biología', miercoles: 'Ed. Física', jueves: 'Matemáticas', viernes: 'Sociales' },
-            { hora: '11:40 - 12:20', lunes: 'Alimentación', martes: 'Alimentación', miercoles: 'Alimentación', jueves: 'Alimentación', viernes: 'Alimentación' },
-            { hora: '12:20 - 1:20', lunes: 'Sociales', martes: 'Ed. Física', miercoles: 'Biología', jueves: 'Inglés', viernes: 'Matemáticas' },
-            { hora: '1:20 - 1:40', lunes: 'Descanso', martes: 'Descanso', miercoles: 'Descanso', jueves: 'Descanso', viernes: 'Descanso' },
-            { hora: '1:40', lunes: 'SALIDA', martes: 'SALIDA', miercoles: 'SALIDA', jueves: 'SALIDA', viernes: 'SALIDA' }
+            { hora: '7:00 - 8:00', lunes: 'Ed. Física', martes: 'Sociales', miercoles: 'Matemáticas', jueves: 'Biología', viernes: 'Matematicas' },
+            { hora: '8:00 - 8:50', lunes: 'Ingles', martes: 'Sociales', miercoles: 'Matematicas', jueves: 'Biologia', viernes: 'Español' },
+            { hora: '8:50 - 9:40', lunes: 'Biología', martes: 'Religion', miercoles: 'Ingles', jueves: 'Administracion', viernes: 'Ingles' },
+            { hora: '10:00 - 10:50', lunes: 'Frances', martes: 'Ptoyecto', miercoles: 'Sistemas', jueves: 'Estadistica', viernes: 'Frances' },
+            { hora: '10:50 - 11:40', lunes: 'Matematicas', martes: 'Español', miercoles: 'Sistemas', jueves: 'Plan Lector', viernes: 'Arte' },
+            { hora: '12:00 - 12:50', lunes: 'Español', martes: 'Ed. Español', miercoles: 'Etica', jueves: 'Contabilidad', viernes: 'Contabilidad' },
+            { hora: '12:50 - 1:40', lunes: 'Robotica', martes: 'Catedra', miercoles: 'Sociales', jueves: 'Filosofia', viernes: 'Ed. Fisica' },
+                      
         ];
         let horarioConTareas = JSON.parse(localStorage.getItem('horarioData')) || horarioDataDefecto;
 
